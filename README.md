@@ -46,34 +46,43 @@ it's up to you what this looks like. As long as you provide a timestamp from the
 
 The following options are available:
 
-- sendRequest: function(callback(error, timestamp))
+**sendRequest**: `function(callback(error, timestamp))`
 This is the transport function that gets called whenever you sync with the server.
 Whenever your transport method finishes, run the callback with the error and timestamp arguments.
 
-- now: function
+**now**: `function`
 You can pass a custom function to get the current system timestamp into ClockSync if you want.
 
-- interval: number
+**interval**: `number`
 The time (ms) that will elapse between synchronizations with the server.
 
-- delay: number
+**delay**: `number`
 The delay (ms) between calls to the server during synchronization.
 
-- timesToSend: number
+**timesToSend**: `number`
 How many times to call the server during the synchronization step.
 
 #### Methods
-- start
+**start**
 Starts the sync, and will run the sync at the specified interval
 
-- stop
+**stop**
 Stops sync
 
-- now
+**now**
 Returns the calculated time based on the server's time
 
-- getOffset
+**getOffset**
 Returns the offset from your time
+
+#### Events
+**started**: Fires when `ClockSync.start()` is called
+
+**stopped**: Fires when `ClockSync.stop()` is called
+
+**syncComplete**: Fires every time a sync is completed
+
+**sync**: Fires every time a sync is started
 
 # Algorithm
 
