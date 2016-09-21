@@ -1,8 +1,8 @@
 {
-  "name": "timesync",
+  "name": "clocksync",
   "version": "0.1.0",
   "description": "Time synchronization with remote server",
-  "author": "Jason Crider",
+  "author": "Retrium",
   "main": "./src/index.js",
   "keywords": [
     "time",
