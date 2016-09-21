@@ -1,0 +1,30 @@
+{
+  "name": "timesync",
+  "version": "0.2.1",
+  "description": "Time synchronization between peers",
+  "author": "Jos de Jong <wjosdejong@gmail.com> (https://github.com/josdejong)",
+  "main": "./src/index.js",
+  "keywords": [
+    "time",
+    "synchronization",
+    "ntp",
+    "client",
+    "server",
+    "isomorphic"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/enmasseio/timesync.git"
+  },
+  "dependencies": {},
+  "scripts": {
+    "test": "node ./node_modules/.bin/_mocha test/**/*.test.js --timeout 10000"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "istanbul": "^0.4.5",
+    "mocha": "^3.0.2",
+    "sinon": "^1.17.6",
+    "sinon-chai": "^2.8.0"
+  }
+}
