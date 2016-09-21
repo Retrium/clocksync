@@ -7,7 +7,7 @@ Usage scenarios:
 - **master/slave**: Clients synchronize their time to that of a single server,
   via either HTTP requests or WebSockets.
 
-# Usage
+## Usage
 
 ClockSync client can connect to a server and sync the client time with the server's time
 ```js
@@ -42,7 +42,7 @@ const socketClockSync = ClockSync({
 For the ClockSync server you just need to provide the timestamp. Since you pass in the transort method,
 it's up to you what this looks like. As long as you provide a timestamp from the server, it will work.
 
-#### Options
+## Options
 
 The following options are available:
 
@@ -62,7 +62,8 @@ The delay (ms) between calls to the server during synchronization.
 **timesToSend**: `number`
 How many times to call the server during the synchronization step.
 
-#### Methods
+## Methods
+
 **start**
 Starts the sync, and will run the sync at the specified interval
 
@@ -75,7 +76,8 @@ Returns the calculated time based on the server's time
 **getOffset**
 Returns the offset from your time
 
-#### Events
+## Events
+
 **started**: Fires when `ClockSync.start()` is called
 
 **stopped**: Fires when `ClockSync.stop()` is called
@@ -84,7 +86,7 @@ Returns the offset from your time
 
 **sync**: Fires every time a sync is started
 
-# Algorithm
+## Algorithm
 
 `ClockSync` uses a simple synchronization protocol aimed at the gaming industry, and extends this for peer-to-peer networks. The algorithm is described [here](A Stream-based Time Synchronization Technique For Networked Computer Games):
 The algorithm used in ClockSync is the same one implemented in the `timesync` library: [https://github.com/enmasseio/timesync](https://github.com/enmasseio/timesync)
