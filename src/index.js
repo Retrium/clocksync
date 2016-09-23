@@ -1,12 +1,16 @@
+'use strict'
+
 /**
  * Created by jasoncrider on 9/20/16.
  */
 const stat = require('../lib/stat');
-const EventEmitter = require('events');
 
 module.exports = function(opts) {
-    if(!opts.sendRequest) {
-        throw new Error('You must set the sendRequest option');
+    if( typeof opts.sendRequest !== 'function') {
+        throw new TypeError('You must set the sendRequest option');
+    }
+    if( typeof opts.syncCallback !== 'function' ) {
+        throw new TypeError('You must set the syncCallback option');
     }
 
     //const causes conflicts even though it should be only scoped here.
@@ -14,14 +18,13 @@ module.exports = function(opts) {
         //defaults
         interval: 60 * 1000, //one hour
         timesToSend: 5,
-        now: Date.now, //you can set your own now func if you want
+        now: Date.now.bind(Date), //you can set your own now func if you want
         delay: 1000
     }, opts);
 
     let _interval = false;
     let results = [];
     let offset = 0;
-    const ClockSyncEmitter = new EventEmitter();
 
     const calculateOffset = function(all) {
         var results = all.filter(result => result !== null);
@@ -42,23 +45,20 @@ module.exports = function(opts) {
         start: function() {
             _interval = setInterval(function() {
                 ClockSync.sync();
-                ClockSync._emit('sync');
             }, options.interval);
 
             setTimeout(function() {
                 ClockSync.sync();
-                ClockSync._emit('started');
             }, 0);
         },
         stop: function() {
             clearInterval(_interval);
-            ClockSync._emit('stopped');
         },
         sync: function(sent) {
             if(!sent) {
                 sent = 0;
             }
-            const rtStart = Date.now();
+            const rtStart = options.now();
             options.sendRequest(function(err, timestamp) {
                 if(err) {
                     throw new Error(err);
@@ -70,9 +70,9 @@ module.exports = function(opts) {
                 sent+=1;
                 if(sent == options.timesToSend) {
                     offset = calculateOffset(results);
-                    ClockSync._emit('syncComplete');
+                    opts.syncCallback(null, offset);
                 } else {
-                    const rtEnd = Date.now();
+                    const rtEnd = options.now();
                     var roundtrip = rtEnd - rtStart;
                     results.push({
                         roundtrip: roundtrip,
@@ -89,9 +89,7 @@ module.exports = function(opts) {
         },
         getOffset: function() {
             return offset;
-        },
-        _emit: ClockSyncEmitter.emit,
-        on: ClockSyncEmitter.on
+        }
     };
 
     return ClockSync;

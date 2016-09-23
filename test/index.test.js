@@ -1,100 +1,35 @@
-/**
- * Created by jasoncrider on 9/21/16.
- */
-var chai = require('chai');
-var sinon = require('sinon');
-var sinonChai = require('sinon-chai');
-chai.should();
-chai.use(sinonChai);
+var test = require('tape').test;
 
 var ClockSync = require('../src')
 
-describe('ClockSync', function() {
-    var sandbox;
-    beforeEach(function() {
-        sandbox = sinon.sandbox.create();
-        sandbox.stub(Date, 'now')
-    });
-
-    afterEach(function() {
-        sandbox.restore();
-    })
-
-    it('should call sync() 5 times', function(done) {
-        var cs = ClockSync({
-            sendRequest: (cb) => {cb(false, 12345)}
-        });
-        sandbox.spy(cs, 'sync')
-        cs.start();
-        cs.on('syncComplete', function() {
-            cs.sync.callCount.should.eql(5);
-            done();
-        });
-    });
-
-    /*
-    This test isn't great because the way we're using the timeout
-    makes it hard to control the timers without freezing up the sync() function.
-    It really only asserts that we can pass in a function for now()
-    and that if we force the offset to be 0 it'll always return what's in the passed in now() func
-     */
-    it('should return the correct time for now when passed in as a function', function(done) {
-        Date.now.returns(1); //doing this lets us assume offset always is null
-        var nowStr = 12345;
-        var i = 1;
-        var cs = ClockSync({
-            sendRequest: (cb) => {
-                cb(false, 12345)
-            },
-            now: () => {
-                return nowStr;
+test('should give us an accurate offset', function(t) {
+    const expected_offset = Math.random() * 10000;
+    const cs = ClockSync({
+        delay: 1000,
+        sendRequest: cb => {
+            // trip time in ms for the request to get to the server
+            const time_to_server = Math.random() * 150 + 10;
+            // trip time in ms for the response to get to the client
+            const time_to_client = Math.random() * 150 + 10;
+            setTimeout( () => {
+                const server_time = Date.now() + expected_offset + Math.random() * 100;
+                setTimeout( () => {
+                    cb(null, server_time)
+                }, time_to_client );
+            }, time_to_server ); 
+        },
+        syncCallback: (err, measured_offset) => {
+            if(err) {
+                return t.end(err);
             }
-        })
-        cs.start();
-        cs.on('syncComplete', function() {
-            cs.now().should.eql(nowStr);
-            done();
-        })
-    })
+            t.ok( 
+                Math.abs(expected_offset - measured_offset) <= expected_offset * 0.01,
+                `the measured offset (${measured_offset}) is within 1% of the expected offset (${expected_offset})`
+            )
+            cs.stop();
+            t.end();
 
-    it('should return the correct time for now', function(done) {
-        var nowStr = 12345;
-        Date.now.returns(nowStr);
-        var i = 1;
-        var cs = ClockSync({
-            sendRequest: (cb) => {
-                cb(false, 12345)
-            }
-        })
-        cs.start();
-        cs.on('syncComplete', function() {
-            cs.now().should.eql(nowStr);
-            done();
-        })
+        }
     })
-
-    it('should emit an event when the sync starts', function(done) {
-        var cs = ClockSync({
-            sendRequest: (cb) => {
-                cb(false, 12345)
-            }
-        })
-        cs.on('started', function() {
-            done();
-        })
-        cs.start();
-    })
-
-    it('should emit an event when sync ends', function(done) {
-        var cs = ClockSync({
-            sendRequest: (cb) => {
-                cb(false, 12345)
-            }
-        })
-        cs.on('stopped', function() {
-            done();
-        })
-        cs.start();
-        cs.stop();
-    })
-})
+    cs.start();
+} )
