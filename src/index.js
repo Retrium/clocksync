@@ -85,7 +85,7 @@ export default function ClockSync({
 				if(err) {
 					syncCallback(err);
 				}
-				if( server_timestamp > 0 ) {
+				if( server_timestamp <= 0 ) {
 					syncCallback( new Error(`ClockSync: the timestamp from the server must be a postiive number (${server_timestamp})`) );
 				}
 				try {
