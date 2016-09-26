@@ -38,6 +38,7 @@ export default function ClockSync({
 	let _results = [];
 	let _offset = 0;
 	let _sync_complete = false;
+	let _time_of_sync = null;
 
 	/*
 	 * there's a whole bunch of nasty side effects
@@ -65,6 +66,9 @@ export default function ClockSync({
 			: _offset;
 
 		_sync_complete = results.length >= repeat;
+		if(has_new_offset) {
+			_time_of_sync = _now();
+		}
 		_results = results;
 
 		return has_new_offset;
@@ -72,12 +76,12 @@ export default function ClockSync({
 
 	function _sync() {
 		_timeout_id = null;
+		if( !_syncing ) return;
 		if(_sync_complete) {
 			_results = [];
 			_sync_complete = false;
 		}
 		let has_new_offset = false;
-		if( !_syncing ) return;
 		try {
 			const sync_start_time = now();
 			sendRequest( _sync_count, (err, server_timestamp) => {
@@ -109,20 +113,43 @@ export default function ClockSync({
 		}
 	}
 
+	function _now() {
+		return now() + _offset;
+	}
+
 	return {
 		start() {
+			if(_syncing) {
+				throw new Error('ClockSync: cannot call ClockSync.start() on an already synchronizing clock.');
+			}
 			_syncing = true;
-			_timeout_id = setTimeout(_sync, 0);
+			if( _sync_complete ) {
+				const time_since_last_sync = _now() - _time_of_sync;
+				// if more time has elapsed since we last synchronized
+				//  then lets sync right now
+				if( interval > time_since_last_sync ) {
+					_timeout_id = setTimeout(_sync, 0);
+				} else {
+					_timeout_id = setTimeout(_sync, interval - time_since_last_sync);
+				}
+			} else {
+				// sync right now
+				_timeout_id = setTimeout(_sync, 0);
+			}
 		},
 		stop() {
+			if(!_syncing) {
+				throw new Error('ClockSync: cannot call ClockSync.stop() on an clock that is not synchronizing.');
+			}
 			_syncing = false;
 			clearTimeout(_timeout_id);
 		},
-		now() {
-			return now() + _offset;
-		},
+		now: _now,
 		get offset() {
 			return _offset;
+		},
+		get isSyncing() {
+			return _syncing;
 		},
 	};
 };
