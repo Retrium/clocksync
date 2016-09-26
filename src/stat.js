@@ -1,26 +1,26 @@
 // basic statistical functions
 
-var compare = function(a, b) {
+export function compare(a, b) {
   return a > b ? 1 : a < b ? -1 : 0;
 }
 
-var add = function (a, b) {
+export function add(a, b) {
   return a + b;
 }
 
-var sum = function (arr) {
+export function sum(arr) {
   return arr.reduce(add);
 }
 
-var mean = function (arr) {
+export function mean(arr) {
   return sum(arr) / arr.length;
 }
 
-var std = function (arr) {
+export function std(arr) {
   return Math.sqrt(variance(arr));
 }
 
-var variance = function (arr) {
+export function variance(arr) {
   if (arr.length < 2) return 0;
 
   var _mean = mean(arr);
@@ -29,7 +29,7 @@ var variance = function (arr) {
           .reduce(add) / (arr.length - 1);
 }
 
-var median = function (arr) {
+export function median(arr) {
   if (arr.length < 2) return arr[0];
 
   var sorted = arr.slice().sort(compare);
@@ -41,14 +41,4 @@ var median = function (arr) {
     // odd
     return sorted[(arr.length - 1) / 2];
   }
-}
-
-module.exports = {
-  compare: compare,
-  add: add,
-  sum: sum,
-  mean: mean,
-  std: std,
-  variance: variance,
-  median: median
 }

@@ -1,96 +1,129 @@
-'use strict'
+import { median, std, mean } from './stat'
+import { SYNC_CALLBACK, INTERVAL, DELAY, REPEAT, NOW } from './defaults'
 
 /**
- * Created by jasoncrider on 9/20/16.
+ * Let's synchronize our clocks!  ClockSync will continuously keep a client's clock
+ *  synchronized with the server's clock.
  */
-const stat = require('../lib/stat');
+export default function ClockSync({
+	sendRequest,
+	syncCallback = SYNC_CALLBACK,
+	interval = INTERVAL,
+	delay = DELAY,
+	repeat = REPEAT,
+	now = NOW
+}) {
+	if( typeof sendRequest !== 'function') {
+		throw new TypeError(`ClockSync: expected sendRequest to be a function but was ${typeof sendRequest}`);
+	}
+	if( typeof syncCallback !== 'function' ) {
+		throw new TypeError(`ClockSync: expected syncCallback to be a function but was ${typeof syncCallback}`);
+	}
+	if( typeof interval !== 'number' && interval >= 0	) {
+		throw new TypeError('ClockSync: interval must be a positive number');
+	}
+	if( typeof delay !== 'number' && delay <= interval) {
+		throw new TypeError('ClockSync: delay must be a positive number no greater than interval');
+	}
+	if( typeof repeat !== 'number' && repeat >= 1 ) {
+		throw new TypeError('ClockSync: repeat must be a postitive number no smaller than 1');
+	}
+	if( typeof now !== 'function' ) {
+		throw new TypeError('ClockSync: now must be a function');
+	}
 
-module.exports = function(opts) {
-    if( typeof opts.sendRequest !== 'function') {
-        throw new TypeError('You must set the sendRequest option');
-    }
-    if( typeof opts.syncCallback !== 'function' ) {
-        throw new TypeError('You must set the syncCallback option');
-    }
+	let _syncing = false;
+	let _sync_count = -1;
+	let _timeout_id = null;
+	let _results = [];
+	let _offset = 0;
+	let _sync_complete = false;
 
-    //const causes conflicts even though it should be only scoped here.
-    var options = Object.assign({}, {
-        //defaults
-        interval: 60 * 1000, //one hour
-        timesToSend: 5,
-        now: Date.now.bind(Date), //you can set your own now func if you want
-        delay: 1000
-    }, opts);
+	/*
+	 * there's a whole bunch of nasty side effects
+	 */
+	function _perform_nasty_side_effects(new_result) {
+		const results = _results.slice();
+		if(results.length >= repeat) {
+			results.shift();
+		}
+		results.push(new_result);
+		// calculate the limit for outliers
+		const roundtrips = results.map(result => result.roundtrip);
+		const roundtrip_limit = median(roundtrips) + std(roundtrips);
 
-    let _interval = false;
-    let results = [];
-    let offset = 0;
+		// filter all results which have a roundtrip smaller than the mean+std
+		const filtered = results.filter(result => result.roundtrip < roundtrip_limit);
+		const offsets = filtered.map(result => result.offset);
 
-    const calculateOffset = function(all) {
-        var results = all.filter(result => result !== null);
+		const has_new_offset = offsets.length > 0;
 
-        // calculate the limit for outliers
-        var roundtrips = results.map(result => result.roundtrip);
-        var limit = stat.median(roundtrips) + stat.std(roundtrips);
+		_sync_count += 1;
 
-        // filter all results which have a roundtrip smaller than the mean+std
-        var filtered = results.filter(result => result.roundtrip < limit);
-        var offsets = filtered.map(result => result.offset);
+		_offset = has_new_offset 
+			? mean(offsets) 
+			: _offset;
 
-        // return the new offset
-        return (offsets.length > 0) ? stat.mean(offsets) : null;
-    };
+		_sync_complete = results.length >= repeat;
+		_results = results;
 
-    const ClockSync = {
-        start: function() {
-            _interval = setInterval(function() {
-                ClockSync.sync();
-            }, options.interval);
+		return has_new_offset;
+	}
 
-            setTimeout(function() {
-                ClockSync.sync();
-            }, 0);
-        },
-        stop: function() {
-            clearInterval(_interval);
-        },
-        sync: function(sent) {
-            if(!sent) {
-                sent = 0;
-            }
-            const rtStart = options.now();
-            options.sendRequest(function(err, timestamp) {
-                if(err) {
-                    throw new Error(err);
-                }
-                if(!timestamp) {
-                    //throw error or something
-                    throw new Error('no timestamp!');
-                }
-                sent+=1;
-                if(sent == options.timesToSend) {
-                    offset = calculateOffset(results);
-                    opts.syncCallback(null, offset);
-                } else {
-                    const rtEnd = options.now();
-                    var roundtrip = rtEnd - rtStart;
-                    results.push({
-                        roundtrip: roundtrip,
-                        offset: timestamp - rtEnd + roundtrip / 2
-                    });
-                    setTimeout(function() {
-                        ClockSync.sync(sent);
-                    }, options.delay);
-                }
-            })
-        },
-        now: function() {
-            return options.now() + offset;
-        },
-        getOffset: function() {
-            return offset;
-        }
-    };
+	function _sync() {
+		_timeout_id = null;
+		if(_sync_complete) {
+			_results = [];
+			_sync_complete = false;
+		}
+		let has_new_offset = false;
+		if( !_syncing ) return;
+		try {
+			const sync_start_time = now();
+			sendRequest( _sync_count, (err, server_timestamp) => {
+				if( !_syncing ) return;
+				if(err) {
+					syncCallback(err);
+				}
+				if( server_timestamp > 0 ) {
+					syncCallback( new Error(`ClockSync: the timestamp from the server must be a postiive number (${server_timestamp})`) );
+				}
+				try {
+					const sync_end_time = now();
+					const roundtrip = sync_end_time - sync_start_time;
+					const result = {
+						roundtrip: roundtrip,
+						offset: server_timestamp - sync_end_time + roundtrip / 2
+					};
+					has_new_offset = _perform_nasty_side_effects(result);
+					_timeout_id = setTimeout(_sync, _sync_complete ? interval : delay);
+				} catch (err) {
+					syncCallback(err);
+				}
+				if( has_new_offset ) {
+					syncCallback(null, _offset, _sync_complete);
+				}
+			} )
+		} catch (err) {
+			syncCallback(err);
+		}
+	}
 
-    return ClockSync;
+	return {
+		start() {
+			_syncing = true;
+			_timeout_id = setTimeout(_sync, 0);
+		},
+		stop() {
+			_syncing = false;
+			clearTimeout(_timeout_id);
+		},
+		now() {
+			return now() + _offset;
+		},
+		get offset() {
+			return _offset;
+		},
+	};
 };
+
