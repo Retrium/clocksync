@@ -3,17 +3,31 @@ import { test } from 'tape'
 import ClockSync from './index'
 
 function createMockSendRequest(server_now) {
-	return (count, cb) => {
+	return function mockSendRequest(sync_id, cb) {
 		// trip time in ms for the request to get to the server
 		const time_to_server = Math.random() * 150 + 10;
 		// trip time in ms for the response to get to the client
 		const time_to_client = Math.random() * 150 + 10;
-		setTimeout( () => {
-			const server_time = server_now();
-			setTimeout( () => {
-				cb(null, server_time)
-			}, time_to_client );
-		}, time_to_server ); 
+
+		// "send" request to server
+		let _timeout = setTimeout( 
+			() => {
+				const server_time = server_now();
+				// "send" response to client
+				_timeout = setTimeout( 
+					() => {
+						cb(null, server_time)
+					},
+					time_to_client
+				);
+			},
+			time_to_server
+		);
+
+		// allow clocksync to cancel the request
+		return function dispose() {
+			clearTiemout(_timeout);
+		} 
 	}
 }
 

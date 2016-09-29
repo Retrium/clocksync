@@ -2,23 +2,18 @@
 
 Time synchronization between peers.
 
-Usage scenarios:
-
-- **master/slave**: Clients synchronize their time to that of a single server,
-  via either HTTP requests or WebSockets.
-
 ## Usage
 
 ClockSync client can connect to a server and sync the client time with the server's time
 ```js
 
-const httpClockSync = ClockSync({
-    sendRequest: function(cb) {
+const clock = ClockSync({
+    sendRequest: function( sync_id, cb) {
         request
             .get('/timestamp') //point this to whatever 
             .end(function(err, res) {
-                if(!err && res.body && res.body.result) {
-                    cb(false, res.body.result)
+                if(!err && res.body && res.body.server_time) {
+                    cb(null, res.body.server_time)
                 } else {
                     //notify airbrake
                     cb(err, res);
@@ -26,16 +21,8 @@ const httpClockSync = ClockSync({
             })
     }
 });
-ts.sync();
-	
-const socketClockSync = ClockSync({
-    sendRequest: function(cb) {
-        socket.emit('timestamp/get')
-        socket.on('timestamp/response', function(timestamp) {
-           cb(false, timestamp);
-        })
-    }
-})
+clock.sync();
+
 
 ```
 
@@ -46,7 +33,7 @@ it's up to you what this looks like. As long as you provide a timestamp from the
 
 The following options are available:
 
-**sendRequest**: `function(callback(error, timestamp))`
+**sendRequest**: `function( sync_count, callback(error, timestamp))`
 This is the transport function that gets called whenever you sync with the server.
 Whenever your transport method finishes, run the callback with the error and timestamp arguments.
 
@@ -59,7 +46,7 @@ The time (ms) that will elapse between synchronizations with the server.
 **delay**: `number`
 The delay (ms) between calls to the server during synchronization.
 
-**timesToSend**: `number`
+**repeat**: `number`
 How many times to call the server during the synchronization step.
 
 ## Methods
@@ -71,20 +58,10 @@ Starts the sync, and will run the sync at the specified interval
 Stops sync
 
 **now**
-Returns the calculated time based on the server's time
+Returns the approximated server time
 
 **getOffset**
 Returns the offset from your time
-
-## Events
-
-**started**: Fires when `ClockSync.start()` is called
-
-**stopped**: Fires when `ClockSync.stop()` is called
-
-**syncComplete**: Fires every time a sync is completed
-
-**sync**: Fires every time a sync is started
 
 ## Algorithm
 

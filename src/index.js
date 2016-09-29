@@ -4,6 +4,8 @@ import { SYNC_CALLBACK, INTERVAL, DELAY, REPEAT, NOW } from './defaults'
 /**
  * Let's synchronize our clocks!  ClockSync will continuously keep a client's clock
  *  synchronized with the server's clock.
+ *
+ * @param sendRequest - 
  */
 export default function ClockSync({
 	sendRequest,
@@ -12,7 +14,7 @@ export default function ClockSync({
 	delay = DELAY,
 	repeat = REPEAT,
 	now = NOW
-}) {
+} = {}) {
 	if( typeof sendRequest !== 'function') {
 		throw new TypeError(`ClockSync: expected sendRequest to be a function but was ${typeof sendRequest}`);
 	}
@@ -33,12 +35,13 @@ export default function ClockSync({
 	}
 
 	let _syncing = false;
-	let _sync_count = -1;
+	let _sync_id = -1;
 	let _timeout_id = null;
 	let _results = [];
 	let _offset = 0;
 	let _sync_complete = false;
 	let _time_of_sync = null;
+	let _cancel_request = null;
 
 	/*
 	 * there's a whole bunch of nasty side effects
@@ -59,7 +62,7 @@ export default function ClockSync({
 
 		const has_new_offset = offsets.length > 0;
 
-		_sync_count += 1;
+		_sync_id += 1;
 
 		_offset = has_new_offset 
 			? mean(offsets) 
@@ -84,7 +87,8 @@ export default function ClockSync({
 		let has_new_offset = false;
 		try {
 			const sync_start_time = now();
-			sendRequest( _sync_count, (err, server_timestamp) => {
+			_cancel_request = sendRequest( _sync_id, (err, server_timestamp) => {
+				_cancel_request = null;
 				if( !_syncing ) return;
 				if(err) {
 					syncCallback(err);
@@ -140,6 +144,9 @@ export default function ClockSync({
 		stop() {
 			if(!_syncing) {
 				throw new Error('ClockSync: cannot call ClockSync.stop() on an clock that is not synchronizing.');
+			}
+			if(_cancel_request) {
+				_cancel_request();
 			}
 			_syncing = false;
 			clearTimeout(_timeout_id);
